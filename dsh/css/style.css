@@ -1,0 +1,1031 @@
+/* ==========================================================================
+   云鲸归途 · CLOUDWHALE VOYAGE —— 开始菜单样式
+   结构：变量 / 基础 / 场景图层 / 调色与光尘 / 标题 / 菜单 / 面板 / 过场 / 响应式
+   图层几何数值与 tools/composite_preview.py 中的 STACK 一一对应。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 变量
+   -------------------------------------------------------------------------- */
+:root {
+  --ease: cubic-bezier(.22, .61, .36, 1);
+  --ease-out: cubic-bezier(.16, .84, .44, 1);
+
+  --ink: #f6e6cd;
+  --ink-dim: rgba(246, 230, 205, .62);
+  --gold: #ffd7a0;
+  --gold-deep: #e0a45c;
+  --amber: #ffb765;
+  --panel-bg: linear-gradient(165deg, rgba(24, 19, 40, .94), rgba(11, 9, 20, .96));
+  --panel-line: rgba(255, 210, 160, .16);
+
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong",
+                 "SimSun", "宋体", "Times New Roman", serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "微软雅黑",
+               system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* 场景图层几何（以 1920x1080 的合成预览为基准） */
+  --whale-left: 45.8%;
+  --whale-top: 18.1%;
+  --whale-w: 52.6%;
+  --islands-left: 13.5%;
+  --islands-top: 39%;
+  --islands-w: 58%;
+  --fg-h: 38.9vh;
+  /* L5 原图内容区是 900×841；左右/下方另补了 280×140 的“出血”岩石带（见 tools/key_out.py）。
+     unit = 每个源像素对应的显示长度，图层盒子按它换算，保证出血后构图与原来逐像素一致。 */
+  --fg-unit: calc(var(--fg-h) / 841);
+}
+
+/* --------------------------------------------------------------------------
+   2. 基础
+   -------------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+
+html {
+  /* 全站以 rem 缩放，窗口越小字越小，避免窄屏溢出 */
+  font-size: clamp(13px, .62vw + .42vh, 21px);
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05040c;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+  cursor: default;
+}
+
+kbd {
+  font-family: var(--font-sans);
+  font-size: .72em;
+  padding: .12em .45em;
+  border: 1px solid rgba(255, 220, 180, .28);
+  border-radius: .3em;
+  background: rgba(255, 220, 180, .08);
+  color: rgba(255, 232, 205, .85);
+}
+
+/* --------------------------------------------------------------------------
+   3. 场景图层
+   .layer 只负责定位 + 视差位移；内部 __art / .cloud-track 负责循环动画。
+   -------------------------------------------------------------------------- */
+.scene {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;        /* 让 mix-blend-mode 只在场景内部叠加 */
+  z-index: 0;
+}
+
+.layer {
+  position: absolute;
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+/* 只有真正做视差位移的层才提升合成层，云层的父级必须保持“干净”：
+   父级一旦有 transform/opacity/will-change 就会形成隔离组，让子级的
+   mix-blend-mode: screen 失去背景可混。 */
+.layer[data-parallax] { will-change: transform; }
+
+/* L0 天空：铺满，不留底 */
+.l-sky {
+  inset: 0;
+  background: #0a0b1f url("../assets/layers/L0_sky.webp") center center / cover no-repeat;
+}
+
+/* L1 远景浮空岛 */
+.l-islands {
+  left: var(--islands-left);
+  top: var(--islands-top);
+  width: var(--islands-w);
+  aspect-ratio: 1491 / 454;
+  opacity: .55;
+}
+.l-islands__art {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/layers/L1_far-islands.webp") center / contain no-repeat;
+  filter: brightness(.88) saturate(.9);
+  animation: island-drift 46s ease-in-out infinite;
+}
+
+/* L2 / L4 云层：screen 混合 + 水平无缝循环 */
+.l-clouds-far,
+.l-clouds-near { inset: 0; }
+
+/* 混合与位移都落在 .cloud-track 自己身上（否则会被父级隔离组吃掉） */
+.cloud-track {
+  position: absolute;
+  /* 左缘预先越出视口 4%：云带是 380% 宽的循环砖，位移最多把它往右推 ~2.5%，
+     留 -4% 的余量后盒子任何时刻都不会缩到屏幕里，循环起点也就不会露缝。 */
+  left: -4%;
+  width: 380%;
+  background-repeat: repeat-x;
+  background-position: left top;
+  background-size: auto 100%;   /* 图高 = 元素高，宽度按比例展开 */
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  opacity: 0;
+  transition: opacity 1.5s var(--ease) var(--d, 0s);
+}
+body.is-ready .cloud-track { opacity: var(--rest, 1); }
+
+/* 竖幅：用元素高度 + 负偏移控制云带在画面里的位置与大小 */
+.l-clouds-far .cloud-track {
+  height: 171.1%;
+  top: -11.5%;
+  background-image: url("../assets/layers/L2_clouds-far.webp");
+}
+.l-clouds-near .cloud-track {
+  height: 177.7%;
+  top: -3.2%;
+  background-image: url("../assets/layers/L4_clouds-near.webp");
+}
+
+/* L3 巨鲸 */
+.l-whale {
+  left: var(--whale-left);
+  top: var(--whale-top);
+  width: var(--whale-w);
+  aspect-ratio: 1920 / 977;
+}
+.l-whale__art {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/layers/L3_whale.webp") center / contain no-repeat;
+  transform-origin: 50% 60%;
+  animation: whale-bob 13s ease-in-out infinite;
+  filter: drop-shadow(0 1.4rem 2.6rem rgba(8, 6, 24, .45));
+}
+
+/* L5 前景崖角 + 提灯旅人
+   盒子按出血后的整图（1180×1021）定位：左、下各越出视口 280 / 180 个源像素，
+   这恒大于该层的最大视差位移（水平 ≈3.4vw、垂直 ≈3.9vh，已含自动漂移叠加），
+   所以无论鼠标在哪、漂移走到哪个相位，屏幕左缘和底缘都不会露出被切平的硬边。 */
+.l-foreground {
+  left: calc(-280 * var(--fg-unit));
+  bottom: calc(-180 * var(--fg-unit));
+  height: calc(1021 * var(--fg-unit));
+  aspect-ratio: 1180 / 1021;
+}
+.l-foreground__art {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/layers/L5_foreground.webp") left bottom / 100% 100% no-repeat;
+  animation: fg-breathe 17s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+/* L6 体积光 */
+.l-light {
+  inset: 0;
+  opacity: .5;
+  mix-blend-mode: screen;
+}
+.l-light__art {
+  position: absolute;
+  inset: 0;
+  background: url("../assets/layers/L6_light.webp") center / cover no-repeat;
+  animation: light-breathe 9s ease-in-out infinite;
+}
+
+@keyframes whale-bob {
+  0%, 100% { transform: translate3d(0, -.9vh, 0) rotate(-.35deg); }
+  50%      { transform: translate3d(0, .9vh, 0) rotate(.35deg); }
+}
+@keyframes island-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(.7vw, -.5vh, 0); }
+}
+@keyframes fg-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.008); }
+}
+@keyframes light-breathe {
+  0%, 100% { opacity: .74; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.035); }
+}
+
+/* --------------------------------------------------------------------------
+   4. 调色（暗角）与光尘
+   -------------------------------------------------------------------------- */
+.grade {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    /* 中偏右的一点暖调，让画面统一 */
+    radial-gradient(110% 85% at 64% 40%, rgba(255, 196, 140, .07), rgba(255, 196, 140, 0) 60%),
+    /* 左侧压一层，保证标题与菜单的对比度 */
+    linear-gradient(90deg, rgba(6, 5, 16, .42) 0%, rgba(6, 5, 16, .17) 24%, rgba(6, 5, 16, 0) 46%),
+    /* 暗角 */
+    radial-gradient(92% 84% at 52% 46%, rgba(6, 5, 16, 0) 58%, rgba(6, 5, 16, .34) 100%),
+    /* 上下轻微过渡 */
+    linear-gradient(180deg, rgba(8, 6, 20, .10) 0%, rgba(8, 6, 20, 0) 20%,
+                    rgba(8, 6, 20, 0) 78%, rgba(6, 5, 16, .30) 100%);
+}
+
+.dust {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   5. 标题区
+   -------------------------------------------------------------------------- */
+.title-block {
+  position: absolute;
+  left: 8rem;
+  top: 7.6vh;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  pointer-events: none;
+}
+
+.emblem {
+  width: 6.6rem;
+  height: 6.7rem;
+  flex: none;
+  background: url("../assets/layers/L7_emblem.webp") center / contain no-repeat;
+  filter: drop-shadow(0 0 1.4rem rgba(255, 186, 110, .45))
+          drop-shadow(0 0 .4rem rgba(255, 226, 180, .35));
+  animation: emblem-glow 7.5s ease-in-out infinite;
+}
+
+@keyframes emblem-glow {
+  0%, 100% { filter: drop-shadow(0 0 1.1rem rgba(255, 186, 110, .38)) drop-shadow(0 0 .3rem rgba(255, 226, 180, .3)); }
+  50%      { filter: drop-shadow(0 0 2.1rem rgba(255, 196, 120, .62)) drop-shadow(0 0 .5rem rgba(255, 236, 200, .45)); }
+}
+
+.title-text { display: flex; flex-direction: column; }
+
+.title {
+  margin: 0;
+  line-height: 1.05;
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+
+.title__cn {
+  display: inline-block;
+  font-size: 4.15rem;
+  letter-spacing: .14em;
+  padding-left: .1em;      /* 抵消字距造成的视觉偏左 */
+  background: linear-gradient(178deg, #fff8ea 4%, #ffe7bd 34%, #f4bd77 66%, #d9964e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 .12rem 0 rgba(58, 26, 8, .55))
+    drop-shadow(0 0 1.6rem rgba(255, 178, 104, .42))
+    drop-shadow(0 0 3.4rem rgba(255, 150, 90, .22));
+}
+
+.title-rule {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: .5rem 0 .45rem;
+  opacity: .8;
+}
+.rule-line {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, rgba(255, 208, 158, 0), rgba(255, 208, 158, .65), rgba(255, 208, 158, 0));
+}
+.rule-dot {
+  width: .3rem;
+  height: .3rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 .7rem rgba(255, 190, 120, .9);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: .74rem;
+  font-weight: 400;
+  letter-spacing: .52em;
+  text-transform: uppercase;
+  color: rgba(255, 228, 194, .78);
+  text-shadow: 0 0 1.2rem rgba(255, 170, 96, .45), 0 .08rem .2rem rgba(30, 12, 4, .8);
+}
+
+/* --------------------------------------------------------------------------
+   6. 主菜单
+   -------------------------------------------------------------------------- */
+.menu {
+  position: absolute;
+  left: 8rem;
+  top: 27vh;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: .16rem;
+}
+
+/* 菜单衬底：椭圆形的柔光暗场，四周自然淡出，不会出现方块边界 */
+.menu::before {
+  content: "";
+  position: absolute;
+  inset: -3.5rem -6rem -3rem -4rem;
+  z-index: -1;
+  background: radial-gradient(72% 88% at 16% 50%,
+              rgba(7, 5, 16, .58) 0%, rgba(7, 5, 16, .32) 48%, rgba(7, 5, 16, 0) 76%);
+  filter: blur(1.2rem);
+  pointer-events: none;
+}
+
+.menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(23rem, 46vw);
+  padding: .78rem 1.6rem .78rem 2.9rem;
+  border: 0;
+  border-radius: .55rem;
+  background: none;
+  color: rgba(246, 230, 205, .74);
+  font-family: var(--font-serif);
+  font-size: 1.42rem;
+  letter-spacing: .18em;
+  text-align: left;
+  cursor: pointer;
+  text-shadow: 0 .05rem .55rem rgba(8, 5, 16, .8);
+  transition: color .38s var(--ease), text-shadow .38s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 选中态：左侧柔和暖光（模糊，不出现方框感）+ 底部细线 + 灯笼 */
+.menu-item::before {
+  content: "";
+  position: absolute;
+  inset: -.35rem -2rem -.35rem -1.1rem;
+  border-radius: 999px;
+  background: radial-gradient(52% 120% at 6% 50%,
+              rgba(255, 186, 110, .30), rgba(255, 186, 110, .09) 44%, rgba(255, 186, 110, 0) 72%);
+  filter: blur(.45rem);
+  opacity: 0;
+  transition: opacity .5s var(--ease);
+}
+.menu-item::after {
+  content: "";
+  position: absolute;
+  left: 2.9rem;
+  right: 1.6rem;
+  bottom: .42rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 206, 150, .85), rgba(255, 206, 150, .18) 60%, rgba(255, 206, 150, 0));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .5s var(--ease);
+}
+
+.menu-item .label { position: relative; }
+
+.menu-item.is-active {
+  color: #fff4e2;
+  text-shadow: 0 0 1.4rem rgba(255, 176, 96, .55), 0 .06rem .16rem rgba(20, 8, 0, .7);
+}
+.menu-item.is-active::before { opacity: 1; }
+.menu-item.is-active::after { transform: scaleX(1); }
+
+.menu-item:focus-visible {
+  outline: 1px solid rgba(255, 214, 160, .55);
+  outline-offset: .35rem;
+}
+
+/* 英文小注 */
+.label-en {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%) translateX(.4rem);
+  font-family: var(--font-sans);
+  font-size: .6rem;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: rgba(255, 226, 190, .5);
+  opacity: 0;
+  transition: opacity .4s var(--ease), transform .4s var(--ease);
+  pointer-events: none;
+}
+.menu-item.is-active .label-en { opacity: .62; transform: translateY(-50%); }
+
+/* 灯笼指示器 */
+.lantern {
+  position: absolute;
+  left: 1.25rem;
+  top: 50%;
+  width: .58rem;
+  height: .82rem;
+  margin-top: -.41rem;
+  border-radius: .12rem .12rem .16rem .16rem;
+  background: linear-gradient(180deg, #ffe6b8, #ffab55 62%, #d9762e);
+  box-shadow: 0 0 .85rem rgba(255, 174, 92, .95), 0 0 2.2rem rgba(255, 140, 60, .55);
+  opacity: 0;
+  transform: translateX(-.5rem) scale(.72);
+  transition: opacity .42s var(--ease), transform .42s var(--ease);
+}
+/* 灯笼的上下提梁 */
+.lantern::before,
+.lantern::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: .34rem;
+  height: .12rem;
+  margin-left: -.17rem;
+  border-radius: .06rem;
+  background: rgba(255, 214, 160, .85);
+  opacity: .85;
+}
+.lantern::before { top: -.16rem; box-shadow: 0 -.1rem 0 -.02rem rgba(255, 214, 160, .45); }
+.lantern::after  { bottom: -.16rem; }
+.lantern i {
+  position: absolute;
+  inset: 30% .12rem auto;
+  height: 1px;
+  background: rgba(255, 240, 210, .55);
+}
+
+.menu-item.is-active .lantern { opacity: 1; transform: translateX(0) scale(1); }
+
+/* 不可选（无存档的「继续旅程」） */
+.menu-item.is-disabled {
+  color: rgba(246, 230, 205, .3);
+  cursor: not-allowed;
+  text-shadow: none;
+}
+.menu-item.is-disabled::before,
+.menu-item.is-disabled::after { opacity: 0; transform: scaleX(0); }
+.menu-item.is-disabled .lantern { opacity: 0; }
+.menu-item.is-disabled .label-en { display: none; }
+
+.hint {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-sans);
+  font-size: .6rem;
+  letter-spacing: .2em;
+  color: rgba(255, 210, 170, .34);
+  opacity: 0;
+  transition: opacity .4s var(--ease);
+}
+.menu-item.is-disabled .hint { opacity: 1; }
+
+/* 页脚小字 */
+.build {
+  position: absolute;
+  left: 8rem;
+  bottom: 2.4vh;
+  z-index: 30;
+  font-size: .62rem;
+  letter-spacing: .3em;
+  color: rgba(255, 220, 190, .32);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   7. 面板 / 弹窗
+   -------------------------------------------------------------------------- */
+.panel {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 4vh 4vw;
+  /* 遮罩用 background-color 过渡，不用 opacity：
+     一旦没有渲染帧（低电量、后台标签、无头截图），opacity 过渡会停在中间值，
+     面板内容就被判为“不可见 / 不可达”。改成颜色过渡后，is-open 一加上内容就可达。 */
+  background-color: rgba(6, 5, 16, 0);
+  backdrop-filter: blur(0);
+  visibility: hidden;
+  transition: background-color .38s var(--ease), backdrop-filter .38s var(--ease);
+}
+.panel.is-open {
+  visibility: visible;
+  background-color: rgba(6, 5, 16, .74);
+  backdrop-filter: blur(3px);
+}
+
+.panel__inner {
+  position: relative;
+  width: min(33rem, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 2.1rem 2.3rem 1.7rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--panel-line);
+  background: var(--panel-bg);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 226, 190, .12);
+  transform: translateY(.8rem) scale(.99);
+  transition: transform .5s var(--ease-out);
+}
+.panel.is-open .panel__inner { transform: none; }
+/* 顶部一条金色细线 */
+.panel__inner::before {
+  content: "";
+  position: absolute;
+  left: 2.3rem;
+  right: 2.3rem;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 200, 140, 0), rgba(255, 200, 140, .6), rgba(255, 200, 140, 0));
+}
+
+.panel__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: .22em;
+  color: #fff1d9;
+}
+.panel__sub {
+  margin: .2rem 0 1.5rem;
+  font-size: .58rem;
+  letter-spacing: .42em;
+  text-transform: uppercase;
+  color: rgba(255, 216, 176, .42);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .82rem 0;
+  border-bottom: 1px solid rgba(255, 214, 170, .08);
+}
+.setting-row:last-of-type { border-bottom: 0; }
+
+.setting-label {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  flex: none;
+  width: 6.2rem;
+  font-size: .95rem;
+  letter-spacing: .1em;
+  color: rgba(255, 236, 210, .9);
+}
+.setting-label--static { width: auto; }
+.setting-value {
+  font-size: .7rem;
+  letter-spacing: .08em;
+  color: rgba(255, 190, 120, .8);
+  font-variant-numeric: tabular-nums;
+}
+.setting-desc {
+  margin: .25rem 0 0;
+  font-size: .68rem;
+  letter-spacing: .04em;
+  color: rgba(255, 226, 200, .42);
+}
+.setting-row--switch { justify-content: space-between; }
+
+/* 滑块 */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 1.5rem;
+  background: none;
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg,
+    rgba(255, 178, 104, .95) 0%, rgba(255, 178, 104, .95) var(--p, 50%),
+    rgba(255, 226, 196, .16) var(--p, 50%), rgba(255, 226, 196, .16) 100%);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: .8rem;
+  height: .8rem;
+  margin-top: -.34rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4e0, #ffbe7c 60%, #d98b3f);
+  box-shadow: 0 0 .8rem rgba(255, 176, 96, .85);
+  border: 0;
+}
+.slider::-moz-range-track {
+  height: 2px; border-radius: 1px; background: rgba(255, 226, 196, .16);
+}
+.slider::-moz-range-progress {
+  height: 2px; border-radius: 1px; background: rgba(255, 178, 104, .95);
+}
+.slider::-moz-range-thumb {
+  width: .8rem; height: .8rem; border: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4e0, #ffbe7c 60%, #d98b3f);
+  box-shadow: 0 0 .8rem rgba(255, 176, 96, .85);
+}
+.slider:focus-visible { outline: none; }
+.slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 .22rem rgba(255, 214, 160, .32), 0 0 1rem rgba(255, 176, 96, .95);
+}
+.slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 .22rem rgba(255, 214, 160, .32), 0 0 1rem rgba(255, 176, 96, .95);
+}
+
+/* 开关 */
+.switch {
+  position: relative;
+  flex: none;
+  width: 2.7rem;
+  height: 1.45rem;
+  padding: 0;
+  border: 1px solid rgba(255, 214, 170, .22);
+  border-radius: 999px;
+  background: rgba(255, 226, 196, .07);
+  cursor: pointer;
+  transition: background .35s var(--ease), border-color .35s var(--ease);
+}
+.switch__knob {
+  position: absolute;
+  top: 50%;
+  left: .16rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: -.525rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f7ecd8, #cdb79a);
+  box-shadow: 0 .1rem .3rem rgba(0, 0, 0, .45);
+  transition: transform .35s var(--ease), background .35s var(--ease);
+}
+.switch[aria-checked="true"] {
+  background: linear-gradient(90deg, rgba(255, 168, 92, .55), rgba(255, 132, 62, .75));
+  border-color: rgba(255, 196, 140, .55);
+}
+.switch[aria-checked="true"] .switch__knob {
+  transform: translateX(1.22rem);
+  background: linear-gradient(180deg, #fff6e6, #ffce93);
+  box-shadow: 0 0 .9rem rgba(255, 176, 96, .8);
+}
+.switch:focus-visible { outline: 1px solid rgba(255, 214, 160, .55); outline-offset: .3rem; }
+
+.panel__close {
+  display: block;
+  margin: 1.5rem auto 0;
+  padding: .6rem 1.4rem;
+  border: 1px solid rgba(255, 214, 170, .2);
+  border-radius: 999px;
+  background: rgba(255, 226, 196, .04);
+  color: rgba(255, 232, 205, .8);
+  font-family: var(--font-sans);
+  font-size: .74rem;
+  letter-spacing: .22em;
+  cursor: pointer;
+  transition: background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+}
+.panel__close:hover {
+  background: rgba(255, 196, 140, .16);
+  border-color: rgba(255, 214, 170, .48);
+  color: #fff3de;
+}
+
+/* 制作人员滚动字幕 */
+.credits-viewport {
+  position: relative;
+  height: 17rem;
+  overflow: hidden;
+  margin-bottom: .5rem;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 12%, #000 84%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 12%, #000 84%, transparent);
+}
+.credits-roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: .6rem 0;
+  text-align: center;
+  animation: credits-roll 34s linear infinite;
+}
+.credits-viewport:hover .credits-roll { animation-play-state: paused; }
+
+@keyframes credits-roll {
+  0%   { transform: translateY(100%); }
+  100% { transform: translateY(-100%); }
+}
+
+.credit-line,
+.credit-role,
+.credit-name { margin: 0 0 .3rem; }
+.credit-line--lead {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  letter-spacing: .3em;
+  color: #ffe9c8;
+  margin-top: .8rem;
+}
+.credit-line--dim {
+  font-size: .62rem;
+  letter-spacing: .34em;
+  color: rgba(255, 216, 176, .45);
+  margin-bottom: 1.4rem;
+}
+.credit-role {
+  margin-top: 1.2rem;
+  font-size: .62rem;
+  letter-spacing: .3em;
+  color: rgba(255, 190, 130, .72);
+}
+.credit-name {
+  font-family: var(--font-serif);
+  font-size: .92rem;
+  letter-spacing: .14em;
+  color: rgba(250, 238, 220, .9);
+}
+
+/* --------------------------------------------------------------------------
+   8. 过场：开始旅程 / 退出确认 / 感谢游玩
+   -------------------------------------------------------------------------- */
+.journey,
+.farewell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(60% 60% at 50% 44%, #0a0813, #020106 78%);
+  visibility: hidden;
+}
+/* 由 .fade 那层负责“淡出到黑”，这里直接出现即可——否则同样会卡在 opacity 中间值 */
+.journey.is-open { visibility: visible; }
+
+.journey__inner,
+.farewell__inner { text-align: center; }
+
+.journey__lantern {
+  display: block;
+  width: .9rem;
+  height: 1.25rem;
+  margin: 0 auto 1.8rem;
+  border-radius: .16rem;
+  background: linear-gradient(180deg, #ffe6b8, #ffab55 62%, #d9762e);
+  box-shadow: 0 0 1.6rem rgba(255, 174, 92, .9), 0 0 4rem rgba(255, 140, 60, .45);
+  animation: lantern-sway 4.2s ease-in-out infinite;
+}
+@keyframes lantern-sway {
+  0%, 100% { transform: translateX(-.18rem) rotate(-3deg); }
+  50%      { transform: translateX(.18rem) rotate(3deg); }
+}
+
+.journey__text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  letter-spacing: .42em;
+  padding-left: .42em;
+  color: rgba(255, 236, 208, .92);
+  text-shadow: 0 0 2rem rgba(255, 170, 96, .35);
+  opacity: 0;
+  transform: translateY(.6rem);
+  transition: opacity .9s .12s var(--ease), transform .9s .12s var(--ease);
+}
+.journey.is-open .journey__text { opacity: 1; transform: none; }
+
+.journey__hint {
+  margin: 1.4rem 0 0;
+  font-size: .68rem;
+  letter-spacing: .24em;
+  color: rgba(255, 220, 190, .4);
+  opacity: 0;
+  transition: opacity 1s .9s var(--ease);
+}
+.journey.is-open .journey__hint { opacity: 1; }
+
+/* 退出确认 */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 4vw;
+  background-color: rgba(4, 3, 10, 0);
+  backdrop-filter: blur(0);
+  visibility: hidden;
+  transition: background-color .34s var(--ease), backdrop-filter .34s var(--ease);
+}
+.modal.is-open {
+  visibility: visible;
+  background-color: rgba(4, 3, 10, .66);
+  backdrop-filter: blur(4px);
+}
+
+.modal__box {
+  width: min(26rem, 90vw);
+  padding: 1.9rem 2rem 1.6rem;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-line);
+  background: var(--panel-bg);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 226, 190, .12);
+  transform: scale(.97);
+  transition: transform .4s var(--ease-out);
+}
+.modal.is-open .modal__box { transform: none; }
+
+.modal__title {
+  margin: 0 0 .6rem;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  color: #fff1d9;
+}
+.modal__text {
+  margin: 0 0 1.5rem;
+  font-size: .72rem;
+  line-height: 1.8;
+  letter-spacing: .06em;
+  color: rgba(255, 226, 200, .55);
+}
+.modal__actions { display: flex; gap: .8rem; justify-content: center; }
+
+.btn {
+  padding: .62rem 1.3rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: .74rem;
+  letter-spacing: .18em;
+  cursor: pointer;
+  transition: all .3s var(--ease);
+}
+.btn--ghost {
+  border: 1px solid rgba(255, 214, 170, .24);
+  background: rgba(255, 226, 196, .04);
+  color: rgba(255, 232, 205, .78);
+}
+.btn--ghost:hover { background: rgba(255, 196, 140, .14); color: #fff3de; }
+.btn--solid {
+  border: 1px solid rgba(255, 196, 140, .5);
+  background: linear-gradient(180deg, rgba(255, 172, 96, .9), rgba(214, 126, 60, .9));
+  color: #2a1405;
+  font-weight: 600;
+}
+.btn--solid:hover { filter: brightness(1.08); box-shadow: 0 0 1.6rem rgba(255, 168, 92, .5); }
+.btn:focus-visible { outline: 1px solid rgba(255, 214, 160, .6); outline-offset: .25rem; }
+
+/* 感谢游玩：结束态（依赖 .fade 已经压黑，这里直接出现，内部文字缓慢浮现） */
+.farewell { z-index: 70; background: #020106; }
+.farewell.is-open { visibility: visible; }
+.farewell__inner {
+  opacity: 0;
+  transition: opacity 1.8s var(--ease) .5s;
+}
+.farewell.is-open .farewell__inner { opacity: 1; }
+
+.farewell__text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  letter-spacing: .5em;
+  padding-left: .5em;
+  color: #ffeccd;
+  text-shadow: 0 0 3rem rgba(255, 170, 96, .4);
+}
+.farewell__sub {
+  margin: .9rem 0 0;
+  font-size: .7rem;
+  letter-spacing: .3em;
+  color: rgba(255, 220, 190, .4);
+}
+
+/* 总淡出层（开始旅程时压黑） */
+.fade {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .85s var(--ease);
+}
+.fade.is-on { opacity: 1; }
+
+/* --------------------------------------------------------------------------
+   9. 进场动画（天空 → 远景 → 鲸 → 前景 → 标题 → 菜单）
+   -------------------------------------------------------------------------- */
+.enter {
+  opacity: 0;
+  transform: translateY(.55rem);
+}
+.layer.enter { transform: none; }        /* 图层只淡入，避免与视差 transform 冲突 */
+
+body.is-ready .enter {
+  opacity: var(--rest, 1);
+  transform: none;
+  transition:
+    opacity 1.25s var(--ease) var(--d, 0s),
+    transform 1.25s var(--ease) var(--d, 0s);
+}
+
+/* 图层的 transform 由 JS 每帧写入（视差），绝不能进入 CSS 过渡：
+   否则每次改内联 transform 都会重启过渡、停在 --d 的延迟阶段，
+   计算值恒为初始值 —— 表现为“内联样式在动、画面纹丝不动”。
+   图层进场因此只过渡 opacity。这两条必须写在上面 .enter 规则之后。 */
+body.is-ready .layer,
+body.is-ready .layer.enter {
+  transition: opacity 1.25s var(--ease) var(--d, 0s);
+}
+
+/* 自检用：index.html#preview 直接跳到所有过渡的终态，便于无头截图比对 */
+body.is-preview *,
+body.is-preview *::before,
+body.is-preview *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. 减少动态
+   -------------------------------------------------------------------------- */
+body.reduce-motion .l-whale__art,
+body.reduce-motion .l-islands__art,
+body.reduce-motion .l-foreground__art,
+body.reduce-motion .l-light__art,
+body.reduce-motion .emblem,
+body.reduce-motion .journey__lantern {
+  animation: none !important;
+}
+body.reduce-motion .credits-roll { animation-duration: 60s; }
+
+body.reduce-motion .enter,
+body.is-ready.reduce-motion .enter {
+  transition-duration: .25s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .l-whale__art,
+  .l-islands__art,
+  .l-foreground__art,
+  .l-light__art,
+  .emblem { animation: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   11. 响应式
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px), (max-height: 620px) {
+  .title-block { top: 6vh; left: 5.5rem; gap: 1rem; }
+  .menu { left: 5.5rem; top: 26vh; }
+  .build { left: 5.5rem; }
+  .title__cn { font-size: 3.4rem; }
+  .emblem { width: 5.2rem; height: 5.3rem; }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  /* 竖屏改为「标题 → 鲸 → 菜单 → 崖角」的纵向分层：
+     - 鲸的宽度同时受屏宽与屏高约束（min(88%, 58vh)），保证它落在标题下方的空档里；
+     - 菜单改为贴底（bottom: 24vh），正好落在鲸与前景崖角之间，二者不再重叠。 */
+  :root {
+    --whale-left: 8%;
+    --whale-top: 20%;
+    --whale-w: min(86%, 52vh);
+    --islands-left: 6%;
+    --islands-top: 40%;
+    --islands-w: 88%;
+    --fg-h: 22vh;
+  }
+  .title-block { top: 5.5vh; }
+  .menu { top: auto; bottom: 24vh; }
+  .build { display: none; }
+}
+
+/* 极窄屏：菜单项放不下右侧英文小注与提示，直接隐藏，避免压字 */
+@media (max-width: 560px) {
+  .label-en,
+  .hint { display: none; }
+  .menu-item { width: min(78vw, 17rem); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .panel.is-open,
+  .modal.is-open { backdrop-filter: none; }
+  .panel.is-open { background-color: rgba(6, 5, 16, .9); }
+  .modal.is-open { background-color: rgba(4, 3, 10, .82); }
+}

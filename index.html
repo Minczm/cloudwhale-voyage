@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>云鲸归途 · 开始菜单 AI 对照实验</title>
+<meta name="description" content="同一份需求、同一个生图模型，两个 AI agent 各自独立设计并实现的游戏开始菜单。">
+<style>
+  :root {
+    --bg: #0b0a1a;
+    --ink: #f3e9dc;
+    --muted: rgba(243, 233, 220, .62);
+    --line: rgba(255, 214, 170, .16);
+    --gold: #f2c58a;
+    --serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong", "SimSun", serif;
+    --sans: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.7;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(240, 150, 110, .18), transparent 60%),
+      radial-gradient(900px 600px at 90% 0%, rgba(120, 110, 220, .22), transparent 60%),
+      var(--bg);
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 4.5rem 1.5rem 3rem; }
+  header { text-align: center; margin-bottom: 2.8rem; }
+  .kicker { font-size: .72rem; letter-spacing: .42em; color: var(--gold); opacity: .8; text-transform: uppercase; }
+  h1 {
+    margin: .5rem 0 .8rem;
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    font-weight: 600;
+    letter-spacing: .12em;
+    background: linear-gradient(180deg, #fff3dd, #f0b977);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede { max-width: 46rem; margin: 0 auto; color: var(--muted); font-size: .98rem; }
+
+  .common {
+    display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center;
+    margin: 1.6rem 0 0; padding: 0; list-style: none;
+  }
+  .common li {
+    font-size: .8rem; padding: .3rem .8rem; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); background: rgba(255, 255, 255, .02);
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.6rem; }
+  .card {
+    display: flex; flex-direction: column;
+    border: 1px solid var(--line); border-radius: 1.1rem; overflow: hidden;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .015));
+    text-decoration: none; color: inherit;
+    transition: transform .35s ease, border-color .35s ease, box-shadow .35s ease;
+  }
+  .card:hover, .card:focus-visible {
+    transform: translateY(-4px);
+    border-color: rgba(255, 214, 170, .42);
+    box-shadow: 0 1.4rem 3rem rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 214, 170, .08);
+    outline: none;
+  }
+  .thumb { aspect-ratio: 16 / 9; background: #14122a; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s ease; }
+  .card:hover .thumb img { transform: scale(1.03); }
+  .body { padding: 1.2rem 1.4rem 1.4rem; display: flex; flex-direction: column; gap: .55rem; flex: 1; }
+  .tag { font-size: .7rem; letter-spacing: .3em; color: var(--gold); text-transform: uppercase; }
+  h2 { margin: 0; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; letter-spacing: .06em; }
+  .facts { margin: .2rem 0 0; padding: 0; list-style: none; font-size: .86rem; color: var(--muted); }
+  .facts li { padding-left: 1rem; position: relative; }
+  .facts li::before { content: "·"; position: absolute; left: .2rem; color: var(--gold); }
+  .open { margin-top: auto; padding-top: .8rem; font-size: .9rem; color: var(--gold); letter-spacing: .08em; }
+
+  .howto {
+    margin: 2.4rem auto 0; max-width: 46rem; text-align: center;
+    font-size: .85rem; color: var(--muted);
+  }
+  kbd {
+    font-family: var(--sans); font-size: .75rem; padding: .05rem .4rem; margin: 0 .1rem;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: .3rem; color: var(--ink);
+  }
+  footer {
+    margin-top: 3rem; padding-top: 1.4rem; border-top: 1px solid var(--line);
+    font-size: .78rem; color: rgba(243, 233, 220, .45); text-align: center;
+  }
+  footer p { margin: .3rem 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker">AI Agent 对照实验</div>
+    <h1>云鲸归途 · 开始菜单</h1>
+    <p class="lede">
+      同一份需求文档、同一个生图模型，交给两个 AI agent 各自独立完成：
+      从美术设计、分层生图、抠图处理，到带视差和完整交互的网页开始菜单。
+      主题是一头背着小村落的巨鲸，在黄昏的云海上游过浮空群岛。
+    </p>
+    <ul class="common">
+      <li>同一份需求文档</li>
+      <li>生图模型：gpt-image-2.5-flare</li>
+      <li>分层素材组装</li>
+      <li>纯静态网页 · 零外部依赖</li>
+    </ul>
+  </header>
+
+  <section class="grid">
+    <a class="card" href="dsh/">
+      <div class="thumb"><img src="thumbs/dsh.webp" alt="DeepSeek 版开始菜单截图" loading="lazy"></div>
+      <div class="body">
+        <div class="tag">Version A</div>
+        <h2>DeepSeek V4.1 Flash Fast</h2>
+        <ul class="facts">
+          <li>思考强度 Max，运行在 DeepSeek Harness（headless 模式）</li>
+          <li>由 Claude 下达任务并做独立验收；首轮交付后经过 2 轮返修</li>
+          <li>生图 9 张</li>
+        </ul>
+        <div class="open">打开菜单 →</div>
+      </div>
+    </a>
+    <a class="card" href="claude/">
+      <div class="thumb"><img src="thumbs/claude.webp" alt="Claude 版开始菜单截图" loading="lazy"></div>
+      <div class="body">
+        <div class="tag">Version B</div>
+        <h2>Claude</h2>
+        <ul class="facts">
+          <li>在 Claude Code 中独立完成</li>
+          <li>生图调用 13 次（成功 10 张），中途放宽了张数上限</li>
+          <li>最终页面使用 8 个图层</li>
+        </ul>
+        <div class="open">打开菜单 →</div>
+      </div>
+    </a>
+  </section>
+
+  <p class="howto">
+    操作：移动鼠标看视差　<kbd>↑</kbd><kbd>↓</kbd> / <kbd>W</kbd><kbd>S</kbd> 选择　<kbd>Enter</kbd> 确认　<kbd>Esc</kbd> 返回<br>
+    建议用电脑浏览器全屏打开；手机也能看，但视差需要鼠标。
+  </p>
+
+  <footer>
+    <p>所有图像均由 AI 生成，代码由 AI 编写。两个版本的图层已用同一参数统一压缩为 WebP。</p>
+    <p>“云鲸归途”为本实验虚构的原创题材。</p>
+  </footer>
+</main>
+</body>
+</html>

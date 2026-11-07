@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>云鲸归途 · CLOUDWHALE VOYAGE</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" class="app is-loading">
+
+    <!-- ============ 场景：图层由 js/main.js 按 js/scene-config.js 生成 ============ -->
+    <div id="scene" class="scene" aria-hidden="true">
+      <!-- .layer 元素在这里由脚本插入（L0 天空 … L6 光） -->
+      <canvas id="particles" class="particles"></canvas>
+      <div class="scene-tint"></div>
+      <div class="vignette"></div>
+    </div>
+
+    <!-- 让右侧文字更易读的柔和暗角 -->
+    <div class="ui-scrim" aria-hidden="true"></div>
+
+    <!-- ============ 标题 + 主菜单 ============ -->
+    <main id="ui" class="ui">
+      <div class="ui-column">
+        <header class="title-block">
+          <picture class="emblem-wrap">
+            <source srcset="assets/layers/L7_emblem.webp" type="image/webp">
+            <img class="emblem" src="assets/layers/L7_emblem.webp" alt="" draggable="false">
+          </picture>
+          <h1 class="title" aria-label="云鲸归途">
+            <span class="title__glow" aria-hidden="true">云鲸归途</span>
+            <span class="title__stroke" aria-hidden="true">云鲸归途</span>
+            <span class="title__fill" aria-hidden="true">云鲸归途</span>
+            <span class="title__sheen" aria-hidden="true">云鲸归途</span>
+          </h1>
+          <div class="title-divider" aria-hidden="true"><i></i></div>
+          <p class="subtitle">CLOUDWHALE VOYAGE</p>
+        </header>
+
+        <!-- 竖屏/方屏时为鲸预留的位置（JS 会把鲸放进这个矩形），横屏时不显示 -->
+        <div class="whale-slot" aria-hidden="true"></div>
+
+        <nav class="menu" aria-label="主菜单">
+          <div class="menu-indicator" aria-hidden="true">
+            <svg class="lantern-icon" viewBox="0 0 24 44" width="24" height="44">
+              <defs>
+                <radialGradient id="lanternGlow" cx="50%" cy="55%" r="55%">
+                  <stop offset="0" stop-color="#fff6d6"/>
+                  <stop offset=".5" stop-color="#ffc66a"/>
+                  <stop offset="1" stop-color="#d8662f"/>
+                </radialGradient>
+              </defs>
+              <path d="M12 0v6" stroke="#e9c993" stroke-width="1.2"/>
+              <rect x="7.5" y="6" width="9" height="3" rx="1.2" fill="#5b3b2a"/>
+              <ellipse cx="12" cy="19.5" rx="8.5" ry="10.5" fill="url(#lanternGlow)"/>
+              <path d="M5.5 15.5Q12 13.4 18.5 15.5M4.2 19.6Q12 17.6 19.8 19.6M5.5 23.8Q12 21.8 18.5 23.8" stroke="rgba(150,64,28,.45)" stroke-width=".8" fill="none"/>
+              <rect x="8.5" y="29.5" width="7" height="2.6" rx="1.1" fill="#5b3b2a"/>
+              <path d="M12 32v7" stroke="#d9682e" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <ul class="menu-list" role="menu">
+            <li role="none"><button class="menu-item" role="menuitem" data-action="start"><span class="menu-item__label">开始旅程</span><span class="menu-item__sub">NEW JOURNEY</span></button></li>
+            <li role="none"><button class="menu-item" role="menuitem" data-action="continue"><span class="menu-item__label">继续旅程</span><span class="menu-item__sub">CONTINUE</span><span class="menu-item__tag">无存档</span></button></li>
+            <li role="none"><button class="menu-item" role="menuitem" data-action="settings"><span class="menu-item__label">设置</span><span class="menu-item__sub">SETTINGS</span></button></li>
+            <li role="none"><button class="menu-item" role="menuitem" data-action="credits"><span class="menu-item__label">制作人员</span><span class="menu-item__sub">CREDITS</span></button></li>
+            <li role="none"><button class="menu-item" role="menuitem" data-action="quit"><span class="menu-item__label">退出游戏</span><span class="menu-item__sub">QUIT</span></button></li>
+          </ul>
+        </nav>
+      </div>
+
+      <p class="key-hints" aria-hidden="true">
+        <kbd>↑</kbd><kbd>↓</kbd> / <kbd>W</kbd><kbd>S</kbd> 选择　<kbd>Enter</kbd> 确认　<kbd>Esc</kbd> 返回
+      </p>
+    </main>
+
+    <!-- ============ 设置面板 ============ -->
+    <section id="panel-settings" class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="panel__box">
+        <h2 id="settings-title" class="panel__title">设置<small>SETTINGS</small></h2>
+
+        <div class="settings-list">
+          <div class="setting">
+            <label class="setting__label" for="set-master">主音量</label>
+            <input class="slider" id="set-master" type="range" min="0" max="100" step="1" data-key="master">
+            <output class="setting__value" for="set-master">80</output>
+          </div>
+          <div class="setting">
+            <label class="setting__label" for="set-music">音乐</label>
+            <input class="slider" id="set-music" type="range" min="0" max="100" step="1" data-key="music">
+            <output class="setting__value" for="set-music">60</output>
+          </div>
+          <div class="setting">
+            <label class="setting__label" for="set-sfx">音效</label>
+            <input class="slider" id="set-sfx" type="range" min="0" max="100" step="1" data-key="sfx">
+            <output class="setting__value" for="set-sfx">70</output>
+          </div>
+          <div class="setting setting--toggle">
+            <span class="setting__label" id="lbl-parallax">视差效果</span>
+            <button class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-parallax" data-key="parallax"><span class="switch__knob"></span></button>
+            <span class="setting__value" data-for="parallax">开</span>
+          </div>
+          <div class="setting setting--toggle">
+            <span class="setting__label" id="lbl-reduce">减少动态</span>
+            <button class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="lbl-reduce" data-key="reduceMotion"><span class="switch__knob"></span></button>
+            <span class="setting__value" data-for="reduceMotion">关</span>
+          </div>
+        </div>
+
+        <p class="panel__note">声音为浏览器实时合成，首次按键或点击后开始播放。设置自动保存。</p>
+        <div class="panel__actions">
+          <button class="btn btn--ghost" type="button" data-action="clear-save">清除存档</button>
+          <button class="btn" type="button" data-action="close">返回</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 制作人员 ============ -->
+    <section id="panel-credits" class="panel" role="dialog" aria-modal="true" aria-labelledby="credits-title" hidden>
+      <div class="panel__box panel__box--credits">
+        <h2 id="credits-title" class="panel__title">制作人员<small>CREDITS</small></h2>
+        <div class="credits-viewport" tabindex="-1">
+          <div class="credits-roll">
+            <p class="credits-head">云鲸归途</p>
+            <p class="credits-en">CLOUDWHALE VOYAGE</p>
+            <dl>
+              <dt>创意 · 美术指导 · 程序</dt><dd>Claude（Anthropic）</dd>
+              <dt>分层插画生成</dt><dd>gpt-image 生图通道（经 dsh）</dd>
+              <dt>抠图与合成工具</dt><dd>Python · Pillow · NumPy</dd>
+              <dt>界面与动效</dt><dd>HTML · CSS · Canvas</dd>
+              <dt>环境音乐与音效</dt><dd>Web Audio 实时合成</dd>
+              <dt>巨鲸</dt><dd>它自己</dd>
+              <dt>提灯的旅人</dt><dd>你</dd>
+              <dt>特别感谢</dt><dd>每一位仍在归途中的人</dd>
+            </dl>
+            <p class="credits-end">愿你的灯火，总能照见归途。</p>
+          </div>
+        </div>
+        <div class="panel__actions">
+          <button class="btn" type="button" data-action="close">返回</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 退出确认 ============ -->
+    <section id="dialog-quit" class="panel panel--dialog" role="alertdialog" aria-modal="true" aria-labelledby="quit-title" aria-describedby="quit-desc" hidden>
+      <div class="panel__box panel__box--small">
+        <h2 id="quit-title" class="panel__title">退出游戏</h2>
+        <p id="quit-desc" class="dialog-text">要在这里放下灯笼，结束这次旅程吗？</p>
+        <div class="panel__actions panel__actions--center">
+          <button class="btn btn--ghost" type="button" data-action="confirm-quit">确认退出</button>
+          <button class="btn" type="button" data-action="close">再看看</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 开始/继续旅程（占位） ============ -->
+    <section id="screen-journey" class="screen" role="dialog" aria-modal="true" aria-labelledby="journey-text" hidden>
+      <div class="screen__inner">
+        <div class="screen__lantern" aria-hidden="true"></div>
+        <p id="journey-text" class="screen__text">旅程即将开始……</p>
+        <p class="screen__sub" id="journey-sub"></p>
+        <button class="btn btn--ghost screen__back" type="button" data-action="close">按 Esc 返回菜单</button>
+      </div>
+    </section>
+
+    <!-- ============ 感谢游玩 ============ -->
+    <section id="screen-thanks" class="screen screen--thanks" role="dialog" aria-modal="true" aria-labelledby="thanks-text" hidden>
+      <div class="screen__inner">
+        <p id="thanks-text" class="screen__text">感谢游玩</p>
+        <p class="screen__sub">愿你的灯火，总能照见归途。<br><span class="screen__tiny">（网页无法自行关闭窗口，可直接关闭此标签页）</span></p>
+        <button class="btn btn--ghost screen__back" type="button" data-action="close">按 Esc 回到标题</button>
+      </div>
+    </section>
+
+    <!-- ============ 载入 ============ -->
+    <div id="loader" class="loader" aria-live="polite">
+      <div class="loader__lantern" aria-hidden="true"></div>
+      <p class="loader__text">正在点亮灯火…</p>
+    </div>
+  </div>
+
+  <noscript><p class="noscript">此页面需要启用 JavaScript。</p></noscript>
+  <script src="js/scene-config.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
